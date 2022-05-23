@@ -1,0 +1,20 @@
+train_dir: ???
+experiment: ???
+
+model:
+    agent: dmlab_multitask_agent
+    core:
+        core_type: rnn
+        n_rnn_layer: 3
+        core_init: orthogonal
+
+optim:
+    type: adam
+    learning_rate: 0.0002
+    batch_size: 1536
+    rollout: 96
+    max_grad_norm: 2.5
+
+learner:
+    use_ppo: True
+    use_adv_normalization: True

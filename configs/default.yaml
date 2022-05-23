@@ -1,0 +1,107 @@
+cfg: None # path to configuration (.yaml) file
+train_dir: ??? # path to train dir
+experiment: ??? # experiment name. logs will be saved train_dir/experiment
+
+seed: 0
+
+# dist arguments will be automatically set from dist_launch.py
+dist:
+    world_size: 1
+    world_rank: 0
+    local_rank: 0
+    nproc_per_node: 1
+    dist_backend: nccl
+
+model:
+    agent: dmlab_multitask_agent # [dmlab_multitask_agent]
+    encoder:
+        encoder_type: resnet # [resnet]. encoder type. only resnet is currently implemented
+        encoder_subtype: resnet_impala # [resnet_impala, resnet_impala_large]. specific encoder architecture. see resnet.py
+        encoder_pooling: max # [max, stride, ???] pooling type. max pooling or conv2d with stride 2. Use avg pooling if not specified.
+        nonlinearity: relu # [relu, elu, tanh] activation function used in encoder
+        nonlinear_inplace: False # nonlinearity will be computed "inplace" if True
+        encoder_extra_fc_layers: 1 # the number of extra fully connected layers that connect encoder outputs and core inputs
+        encoder_init: orthogonal # [orthogonal, xavier_uniform, torch_default] initialization method used in encoder
+    core:
+        core_type: trxl # [trxl, rnn] core type.
+        hidden_size: 256 # size of hidden layer in the model
+        # trxl params
+        mem_len: 512 # memory length
+        n_layer: 12 # number of layers
+        n_heads: 8 # number of MHA heads
+        d_head: 64 # MHA head dimension
+        d_inner: 2048 # the position wise ff network dimension
+        # rnn_params
+        n_rnn_layer: 3
+        core_init: orthogonal # [orthogonal, xavier_uniform, torch_default] initialization method used in core
+
+    extended_input: True # concatenate ont_hot action and reward to encoder output if set True
+    use_popart: True # whether to use PopArt normalization or not
+    popart_beta: 0.0003 # decay rate to track mean and standard derivation of the values
+    popart_clip_min: 0.0001 # popart minimum clip value for numerical stability
+    device: cuda
+    use_half_policy_worker: True # use half-precision in Policy Worker
+
+test:
+    is_test: False # set True when testing
+    checkpoint: ??? # full-path to checkpoint (.pth)
+    test_num_episodes: 100 # the number of test episodes per level
+
+optim:
+    type: adam # [adam, adamw] type of optimizer
+    learning_rate: 0.0001 # learning rate
+    adam_beta1: 0.9 # adam momentum decay coefficient
+    adam_beta2: 0.999 # adam second momentum decay coefficient
+    adam_eps: 1e-06 # adam epsilon parameter (1e-8 to 1e-5 seem to reliably work okay)
+    max_grad_norm: 2.5 # maximum L2 norm of the gradient vector (for clipping)
+    rollout: 96 # length of the rollout from each environment in timesteps
+    batch_size: 1536 # total batch size (batch X rollout)
+    train_for_env_steps: 20000000000 # stop after a policy is trained for this many env steps
+
+shared_buffer:
+    min_traj_buffers_per_worker: 4 # how many shared buffers to allocate per actor worker
+
+learner:
+    exploration_loss_coeff: 1e-3 # coefficient for the exploration component of the loss function
+    vtrace_rho: 1.0 # rho_hat clipping parameter of the V-trace algorithm
+    vtrace_c: 1.0 # c_hat clipping parameter of the V-trace algorithm
+    exclude_last: True # exclude last timestep vs when computing V-trace
+    use_ppo: False # whether to use ppo or not
+    ppo_clip_ratio: 0.1 # clipping ratio value for ppo algorithm
+    ppo_clip_value: 0.2 # maximum absolute change in value estimate until it is clipped
+    gamma: 0.99 # discount factor
+    value_loss_coeff: 0.5 # coefficient for the critic loss
+    keep_checkpoints: 3 # number of model checkpoints to keep
+    warmup_optimizer: 100 # warm up step for leaner, optimizer step count
+    use_adv_normalization: False # whether to use advantage normalization or not
+    psychlab_gamma: -1.0 # specific gamma value for psychlab levels. use "gamma" if <0
+    use_decoder: False # whether to use decoder for auxiliary reconstruction component or not
+    reconstruction_loss_coeff: 0.0 # coefficient for auxiliary reconstruction component of the loss function
+
+actor:
+    num_workers: 30 # the number of actor processes for this node
+    num_envs_per_worker: 6 # number of envs on sampled sequentially
+    num_splits: 2 # set 2 for double buffering
+    set_workers_cpu_affinity: True # whether to assign workers to specific CPU cores or not
+
+env:
+    name: dmlab_30 # name of environment. see DMLAB_LEVELS_BY_ENVNAME in dmlab30.py
+    res_w: 96 # width of image frame
+    res_h: 72 # height of image frame
+    dataset_path: ./brady_konkle_oliva2008 # path to dataset needed for some of the environments in DMLab-30
+    use_level_cache: True # whether to use the local level cache (highly recommended)
+    level_cache_path: ./dmlab_cache # location to store the cached levels
+    action_set: extended_action_set # [impala_action_set, extended_action_set, extended_action_set_large]. see dmlab30.py
+    frameskip: 4 # the number of frames for action repeat (frame skipping)
+    obs_subtract_mean: 128.0 # mean value to subtract from observation
+    obs_scale: 128.0 # scale value to for normalization
+    one_task_per_worker: False # every envs in VectorEnvRunner will run the same level if set to True
+    decorrelate_envs_on_one_worker: True # decorrelation of worker processes
+    decorrelate_experience_max_seconds: 10 # maximum seconds for decorrelation
+
+log:
+    save_milestones_step: 1000000000 # save intermediate checkpoints in a separate folder for later evaluation
+    save_every_sec: 3600 # checkpointing rate
+    log_level: debug # logging level
+    report_interval: 300.0 # how often in seconds we write summaries
+    num_stats_average: 100 # the number of stats to average (for tensorboard logging)
