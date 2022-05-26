@@ -9,7 +9,7 @@ In specific, our transformer-based policy network has 28 million parameters and 
 
 We release the source code and trained agent to facilitate future research on DMLab benchmark.
 
-The agent successfully obtained SOTA score of **91.25** (testing) in terms of capped human normalized score on DMLab-30 
+The agent successfully obtained near SOTA score of **91.25** (testing) in terms of capped human normalized score on DMLab-30 
 (multi-task mode), after training for 20B frames.
 
 
