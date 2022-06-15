@@ -1,0 +1,30 @@
+from brain_agent.utils.utils import AttrDict
+
+BLStatIds = AttrDict(
+    X=0,
+    Y=1,
+    STR_PCT=2,
+    STR=3,
+    DED=4,
+    CON=5,
+    INT=6,
+    WID=7,
+    CHA=8,
+    SCORE=9,
+    HP=10,
+    MAX_HP=11,
+    DEPTH=12,
+    GOLD=13,
+    ENERGY=14,
+    MAX_ENERGY=15,
+    AC=16,
+    ML=17,
+    LV=18,
+    EXP=19,
+    TIME=20,
+    HUNGER=21,
+    CAP=22,
+    DN=23,
+    LN=24,
+    CM=25
+)

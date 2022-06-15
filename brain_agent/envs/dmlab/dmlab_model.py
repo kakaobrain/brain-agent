@@ -1,0 +1,109 @@
+import torch
+
+from torch import nn
+
+from brain_agent.core.models.model_abc import EncoderBase
+from brain_agent.core.models.resnet import ResnetEncoder
+
+from brain_agent.envs.dmlab.dmlab30 import DMLAB_VOCABULARY_SIZE, DMLAB_INSTRUCTIONS
+from brain_agent.utils.logger import log
+
+
+class DmlabEncoder(EncoderBase):
+    def __init__(self, cfg, obs_space):
+        super().__init__(cfg)
+
+        if self.cfg.model.encoder.encoder_type == 'resnet':
+            self.basic_encoder = ResnetEncoder(cfg, obs_space)
+        else:
+            raise NotImplementedError
+        self.encoder_out_size = self.basic_encoder.encoder_out_size
+
+        self.embedding_size = 20
+        self.instructions_lstm_units = 64
+        self.instructions_lstm_layers = 1
+
+        padding_idx = 0
+        self.word_embedding = nn.Embedding(
+            num_embeddings=DMLAB_VOCABULARY_SIZE,
+            embedding_dim=self.embedding_size,
+            padding_idx=padding_idx
+        )
+
+        self.instructions_lstm = nn.LSTM(
+            input_size=self.embedding_size,
+            hidden_size=self.instructions_lstm_units,
+            num_layers=self.instructions_lstm_layers,
+            batch_first=True,
+        )
+
+        self.encoder_out_size += self.instructions_lstm_units
+        log.debug('Policy head output size: %r', self.encoder_out_size)
+
+        self.instructions_lstm.apply(self.initialize)
+
+    def initialize(self, layer):
+        gain = 1.0
+        if hasattr(layer, 'bias') and isinstance(layer.bias, torch.nn.parameter.Parameter):
+            layer.bias.data.fill_(0)
+
+        if self.cfg.model.encoder.encoder_init == 'orthogonal':
+            if type(layer) == nn.Conv2d or type(layer) == nn.Linear:
+                nn.init.orthogonal_(layer.weight.data, gain=gain)
+            elif type(layer) == nn.GRUCell or type(layer) == nn.LSTMCell:
+                nn.init.orthogonal_(layer.weight_ih, gain=gain)
+                nn.init.orthogonal_(layer.weight_hh, gain=gain)
+                layer.bias_ih.data.fill_(0)
+                layer.bias_hh.data.fill_(0)
+        elif self.cfg.model.encoder.encoder_init == 'xavier_uniform':
+            if type(layer) == nn.Conv2d or type(layer) == nn.Linear:
+                nn.init.xavier_uniform_(layer.weight.data, gain=gain)
+                layer.bias.data.fill_(0)
+            elif type(layer) == nn.GRUCell or type(layer) == nn.LSTMCell:
+                nn.init.xavier_uniform_(layer.weight_ih, gain=gain)
+                nn.init.xavier_uniform_(layer.weight_hh, gain=gain)
+                layer.bias_ih.data.fill_(0)
+                layer.bias_hh.data.fill_(0)
+        elif self.cfg.model.encoder.encoder_init == 'torch_default':
+            pass
+        else:
+            raise NotImplementedError
+
+    def model_to_device(self, device):
+        self.to(device)
+        self.word_embedding.to(self.device)
+        self.instructions_lstm.to(self.device)
+
+    def device_and_type_for_input_tensor(self, input_tensor_name):
+        if input_tensor_name == DMLAB_INSTRUCTIONS:
+            return self.model_device(), torch.int64
+        else:
+            return self.model_device(), torch.float32
+
+    def forward(self, obs_dict, **kwargs):
+        x = self.basic_encoder(obs_dict, **kwargs)
+
+        with torch.no_grad():
+            instr = obs_dict[DMLAB_INSTRUCTIONS]
+            instr_lengths = (instr != 0).sum(axis=1)
+            instr_lengths = torch.clamp(instr_lengths, min=1)
+            max_instr_len = torch.max(instr_lengths).item()
+            instr = instr[:, :max_instr_len]
+            instr_lengths_cpu = instr_lengths.to('cpu')
+
+        instr_embed = self.word_embedding(instr)
+        instr_packed = torch.nn.utils.rnn.pack_padded_sequence(
+            instr_embed, instr_lengths_cpu, batch_first=True, enforce_sorted=False,
+        )
+        rnn_output, _ = self.instructions_lstm(instr_packed)
+        rnn_outputs, sequence_lengths = torch.nn.utils.rnn.pad_packed_sequence(rnn_output, batch_first=True)
+
+        first_dim_idx = torch.arange(rnn_outputs.shape[0])
+        last_output_idx = sequence_lengths - 1
+        last_outputs = rnn_outputs[first_dim_idx, last_output_idx]
+
+        last_outputs = last_outputs.to(x.device)
+
+        x = torch.cat((x, last_outputs), dim=1)
+        return x
+

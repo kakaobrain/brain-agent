@@ -1,0 +1,158 @@
+cfg: None
+train_dir: train_dir/nethack
+experiment:
+
+seed:
+
+dist:
+    world_size: 1
+    world_rank: 0
+    local_rank: 0
+    nproc_per_node: 1
+    dist_backend: nccl
+
+model:
+    agent: nethack_separated_action_agent
+    encoder:
+        encoder_type: conv
+        encoder_subtype: nethack_glyph
+        encoder_custom: trxli_encoder
+        encoder_extra_fc_layers: 1
+        encoder_init: orthogonal
+        nonlinearity: elu
+        nonlinear_inplace: False
+
+        use_prev_action_emb: False
+        prev_action_emb_dim: 32
+        prev_action_use_index_select: True
+
+        message_encoder: embedding # choices among ('mlp', 'embedding', 'embedding_pretrained', 'baseline')
+        vobs_hidden_dim: 256
+        cat_vobs: False
+        serialize_to_vobs: False
+        use_layer_norm: True
+        add_fc_layers_after_concat: True
+        msg_hidden_dim: 64
+
+        n_head_trxli: 4
+        cat_last_atype: True
+        embed_avail_atype: False
+    core:
+        core_type: lstm # [trxl, lstm, gru] core type.
+        hidden_size: 512 # size of hidden layer in the model
+        # trxl params
+        mem_len: 1 # memory length
+        n_layer: 12 # number of layers
+        n_heads: 8 # number of MHA heads
+        d_head: 64 # MHA head dimension
+        d_inner: 2048 # the position wise ff network dimension
+        # rnn_params
+        n_rnn_layer: 1
+        core_init: orthogonal # [orthogonal, xavier_uniform, torch_default] initialization method used in core
+
+    extended_input: False
+    extended_input_action: False
+
+    use_popart: False
+    popart_beta: 0.0003
+    popart_clip_min: 0.0001
+    device: cuda
+    use_half_policy_worker: False
+
+test:
+    is_test: False # set True when testing
+    checkpoint: ??? # full-path to checkpoint (.pth)
+    test_num_episodes: 100 # the number of test episodes per level
+
+optim:
+    rollout: 64
+    batch_size: 2048
+    type: adam
+    learning_rate: 0.0005
+    adam_beta1: 0.9
+    adam_beta2: 0.999
+    adam_eps: 1e-06
+    max_grad_norm: 4
+    scheduler:
+    train_for_env_steps: 10000000000 # stop after a policy is trained for this many env steps
+
+actor:
+    num_workers: 32
+    num_envs_per_worker: 16
+    num_splits: 2
+    set_workers_cpu_affinity: True
+
+learner:
+    exploration_loss_coeff: 5e-3
+    relative_exploration_direction: 2.5
+    relative_exploration_spell: 1.0
+    train_in_background_thread: True
+    vtrace_rho: 1.0
+    vtrace_c: 1.0
+    exclude_last: False # exclude last timestep vs when computing V-trace
+    use_ppo: True # whether to use ppo or not
+    ppo_clip_ratio: 0.1
+    ppo_clip_value: 1.0
+    gamma: 0.999
+    value_loss_coeff: 0.5
+    save_every_sec: 3600
+    keep_checkpoints: 3
+    warmup_optimizer: 0
+    use_adv_normalization: True
+    use_decoder: False
+    resume: False
+
+shared_buffer:
+    min_traj_buffers_per_worker: 4
+
+env:
+    name: nethack_challenge
+    num_levels: 1
+    max_num_steps: 1000000
+    restrict_action_space: True
+    crop_size: 12
+    font_size: 9
+    rescale_font_size: 6
+    normalize_blstats: default # choice among (default, zscore, minmax)
+    use_dict_obs_wrapper: True
+    use_tty_chars_colors: True
+    use_avail_atype: False
+    use_character_feature: True
+    use_item_feature: True
+    use_spell_feature: True
+    encode_pick_item_feature: True
+    fixed_role: wizard # None is defulat, choice among (archeologist, barbarian, cave, healer, knight, monk, priest, ranger, rogue, samurai, tourist, valkyrie, wizard)
+    minimal_obs: True
+
+    penalty_step: -0.01
+    penalty_time: 0.0
+    fn_penalty_step: constant
+
+    block_kill_pet: False
+    hide_pet: Fales
+    use_separated_action: True
+    reward_shaping: # Make it empty for not using reward shaping or choose one in brain_agent.envs.nethack.wrappers.reward_shapings: e.g., base
+
+    use_action_overrider: False
+    debug_action_overrider: False
+
+    use_item_data: False
+    item_data_extra_dim: 43
+
+    frameskip: 1
+    obs_subtract_mean: 0.0
+    obs_scale: 255.0
+    pixel_format: CHW
+    one_task_per_worker: False
+    decorrelate_envs_on_one_worker: True
+    decorrelate_experience_max_seconds: 10
+    reward_scale: 0.01
+    reward_clip: 5.0
+    record_to:
+
+log:
+    save_milestones_step: 1000000000 # save intermediate checkpoints in a separate folder for later evaluation
+    save_every_sec: 3600 # checkpointing rate
+    log_level: debug # logging level
+    report_interval: 180.0 # how often in seconds we write summaries
+    num_stats_average: 100 # the number of stats to average (for tensorboard logging)
