@@ -140,6 +140,9 @@ class SharedBuffer:
         self.mems_dones_dimensions = [self.cfg.actor.num_workers, self.cfg.actor.num_splits,
                                       self.envs_per_split, self.max_mems_buffer_len]
         self.mems_dones_dimensions.append(1)
+        self.mems_actions_dimensions = [self.cfg.actor.num_workers, self.cfg.actor.num_splits,
+                                      self.envs_per_split, self.max_mems_buffer_len]
+        self.mems_actions_dimensions.append(1)
 
     def calc_num_trajectory_buffers(self):
         num_traj_buffers = self.cfg.optim.batch_size / (

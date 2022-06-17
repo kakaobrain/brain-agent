@@ -33,7 +33,7 @@ model:
         d_inner: 2048 # the position wise ff network dimension
         # rnn_params
         n_rnn_layer: 3
-        core_init: orthogonal # [orthogonal, xavier_uniform, torch_default] initialization method used in core
+        core_init: tensorflow_default # [tensorflow_default, torch_default] initialization method used in core
 
     extended_input: True # concatenate ont_hot action and reward to encoder output if set True
     use_popart: True # whether to use PopArt normalization or not
@@ -57,6 +57,7 @@ optim:
     rollout: 96 # length of the rollout from each environment in timesteps
     batch_size: 1536 # total batch size (batch X rollout)
     train_for_env_steps: 20000000000 # stop after a policy is trained for this many env steps
+    warmup_optimizer: 100 # warm up step for leaner, optimizer step count
 
 shared_buffer:
     min_traj_buffers_per_worker: 4 # how many shared buffers to allocate per actor worker
@@ -72,11 +73,13 @@ learner:
     gamma: 0.99 # discount factor
     value_loss_coeff: 0.5 # coefficient for the critic loss
     keep_checkpoints: 3 # number of model checkpoints to keep
-    warmup_optimizer: 100 # warm up step for leaner, optimizer step count
     use_adv_normalization: False # whether to use advantage normalization or not
     psychlab_gamma: -1.0 # specific gamma value for psychlab levels. use "gamma" if <0
     use_decoder: False # whether to use decoder for auxiliary reconstruction component or not
     reconstruction_loss_coeff: 0.0 # coefficient for auxiliary reconstruction component of the loss function
+    use_aux_future_pred_loss: False # whether to add auxiliary loss for predicting obs of 2 to 10 future steps using auto regressive trnasformers
+    aux_future_pred_loss_coeff: 1.0 # coefficient for auxiliary future predict component of the loss function autoregressive trnasformers
+    resume_training : False # load latest checkpoint if set to True
 
 actor:
     num_workers: 30 # the number of actor processes for this node

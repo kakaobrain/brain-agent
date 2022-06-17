@@ -103,6 +103,7 @@ class PolicyWorker:
             mem_dones_D_dim = 1
             self.mems = torch.zeros([max_batch_size, mem_T_dim, mem_D_dim]).float().to(self.device)
             self.mems_dones = torch.zeros([max_batch_size, mem_T_dim, mem_dones_D_dim]).float().to(self.device)
+            self.mems_actions = torch.zeros([max_batch_size, mem_T_dim, mem_dones_D_dim]).short().to(self.device)
             self.max_mems_buffer_len = self.shared_buffer.max_mems_buffer_len
 
             self.mems_buffer = None
@@ -111,10 +112,11 @@ class PolicyWorker:
         if init_model_data is None:
             self._load_model()
         else:
-            policy_version, state_dict, mems_buffer, mems_dones_buffer = init_model_data
+            policy_version, state_dict, mems_buffer, mems_dones_buffer, mems_actions_buffer = init_model_data
             self.actor_critic.load_state_dict(state_dict)
 
             self.mems_buffer = mems_buffer
+            self.mems_actions_buffer = mems_actions_buffer
             self.mems_dones_buffer = mems_dones_buffer
 
             self.shared_model_weights = state_dict
@@ -135,6 +137,8 @@ class PolicyWorker:
 
         self.mems_buffer = torch.zeros(self.shared_buffer.mems_dimensions).to(self.cfg.model.device)
         self.mems_dones_buffer = torch.zeros(self.shared_buffer.mems_dones_dimensions, dtype=torch.bool).to(
+            self.cfg.model.device)
+        self.mems_actions_buffer = torch.zeros(self.shared_buffer.mems_actions_dimensions).short().to(
             self.cfg.model.device)
 
         self.report_queue.put(dict(learner_env_steps=env_step))
@@ -181,8 +185,8 @@ class PolicyWorker:
                             s_idx = (actor_env_step - self.cfg.model.core.mem_len) % self.max_mems_buffer_len
                             e_idx = actor_env_step % self.max_mems_buffer_len
                             with self.timing.timeit('mems_copy'):
-                                self.mems[r_idx], self.mems_dones[r_idx] = slice_mems(
-                                    self.mems_buffer, self.mems_dones_buffer, *index[:3], s_idx, e_idx)
+                                self.mems[r_idx], self.mems_dones[r_idx], self.mems_actions[r_idx] = slice_mems(
+                                    self.mems_buffer, self.mems_dones_buffer, self.mems_actions_buffer, *index[:3], s_idx, e_idx)
                             self.timing['mems_copy'] *= len(self.requests) * len(request_data)
                             r_idx += 1
                             first_rollout_list.append(first_rollout)

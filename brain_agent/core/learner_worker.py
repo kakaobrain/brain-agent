@@ -133,7 +133,8 @@ class LearnerWorker:
         log.debug('Broadcast model weights for model version %d', policy_version)
         mems_buffer = self.mems_buffer
         mems_dones_buffer = self.mems_dones_buffer
-        model_state = (policy_version, state_dict, mems_buffer, mems_dones_buffer)
+        mems_actions_buffer = self.mems_actions_buffer
+        model_state = (policy_version, state_dict, mems_buffer, mems_dones_buffer, mems_actions_buffer)
         self.policy_worker_queue.put((TaskType.INIT, None))
         self.policy_worker_queue.put((TaskType.INIT_MODEL, model_state))
 
@@ -164,13 +165,13 @@ class LearnerWorker:
             use_pinned_memory = self.cfg.model.device == 'cuda'
             buffer = self.tensor_batcher.cat(buffer, macro_batch_size, use_pinned_memory)
 
-        with self.timing.timeit('tensors_gpu_float'):
-            device_buffer = self._copy_train_data_to_device(buffer)
-
         # Mark buffer for used rollouts free
         with self.timing.timeit('buff_ready'):
             for r in rollouts:
                 self.traj_tensors_available[r.actor_idx, r.split_idx][r.env_idx, r.traj_buffer_idx] = 1
+
+        with self.timing.timeit('tensors_gpu_float'):
+            device_buffer = self._copy_train_data_to_device(buffer)
 
         # will squeeze actions only in simple categorical case
         tensors_to_squeeze = [
@@ -292,20 +293,13 @@ class LearnerWorker:
 
         return loss
 
-    def _value_loss(self, new_values, old_values, target, clip_value, ppo=False, exclude_last=False):
-        if ppo:
-            value_clipped = old_values + torch.clamp(new_values - old_values, -clip_value, clip_value)
-            value_original_loss = (new_values - target).pow(2)
-            value_clipped_loss = (value_clipped - target).pow(2)
-            value_loss = torch.max(value_original_loss, value_clipped_loss)
-            value_loss = value_loss.mean()
-        else:
-            value_loss = (new_values - target).pow(2)
-            if exclude_last:
-                loss_mask = torch.ones_like(value_loss).view(-1, self.cfg.optim.rollout)
-                loss_mask[:, -1] = 0
-                value_loss = value_loss * loss_mask.contiguous().view(-1)
-            value_loss = value_loss.mean()
+    def _value_loss(self, new_values, target, exclude_last=False):
+        value_loss = (new_values - target).pow(2)
+        if exclude_last:
+            loss_mask = torch.ones_like(value_loss).view(-1, self.cfg.optim.rollout)
+            loss_mask[:, -1] = 0
+            value_loss = value_loss * loss_mask.contiguous().view(-1)
+        value_loss = value_loss.mean()
 
         value_loss *= self.cfg.learner.value_loss_coeff
         return value_loss
@@ -373,8 +367,8 @@ class LearnerWorker:
         if self.cfg.model.core.core_type == 'trxl':
             mems_indices = mb.mems_indices.type(torch.long)
             for bidx in range(mems_indices.shape[0]):
-                self.mems[:, bidx], self.mems_dones[:, bidx] = slice_mems(
-                    self.mems_buffer, self.mems_dones_buffer, *mems_indices[bidx, :5])
+                self.mems[:, bidx], self.mems_dones[:, bidx], self.mems_actions[:, bidx] = slice_mems(
+                    self.mems_buffer, self.mems_dones_buffer, self.mems_actions_buffer, *mems_indices[bidx, :5])
             dones = mb.dones.view(rollouts_in_batch, recurrence).transpose(0, 1)
 
             actor_env_step_of_rollout_begin = mb.actor_env_step - recurrence
@@ -386,18 +380,28 @@ class LearnerWorker:
                     head_outputs, self.mems, mem_begin_index=mem_begin_index, dones=dones, from_learner=True)
 
         elif self.cfg.model.core.core_type == 'rnn':
-            rnn_states = mb.rnn_states[::recurrence]
             with self.timing.timeit('bptt'):
-                core_outputs, _ = self.actor_critic.forward_core_rnn(
-                    head_outputs, rnn_states, mb.dones, is_seq=True)
+                head_output_seq, rnn_states, inverted_select_inds = self.actor_critic.core.build_rnn_inputs(
+                    head_outputs, mb.dones_cpu, mb.rnn_states, recurrence)
+
+                core_output_seq, _ = self.actor_critic.forward_core_rnn(head_output_seq, rnn_states,
+                                                                                        mb.dones, is_seq=True)
+                core_outputs = core_output_seq.data.index_select(0, inverted_select_inds)
         else:
             raise NotImplementedError
 
         # calculate policy tail outside of recurrent loop
         with self.timing.timeit('tail'):
             result = self.actor_critic.forward_tail(core_outputs, mb.task_idx.to(torch.long),
-                                                    with_action_distribution=True)
+                                                with_action_distribution=True)
+
+        if self.cfg.learner.use_aux_future_pred_loss:
+            future_pred_loss = self.actor_critic.future_pred_module.calc_loss(mb,
+                  core_outputs, self.mems, self.mems_actions, mems_dones, mem_begin_index, rollouts_in_batch,recurrence)
+            result.future_pred_loss = future_pred_loss
+
         return result
+
 
     def _train(self, mb):
         # Initialize some variables
@@ -435,6 +439,7 @@ class LearnerWorker:
 
         # super large/small values can cause numerical problems and are probably noise anyway
         ratio = torch.clamp(ratio, 0.01, 100.0)
+
 
         # Calculate learning targets
         with torch.no_grad(), self.timing.timeit('calc_targets'):  # these computations are not the part of the computation graph
@@ -487,11 +492,9 @@ class LearnerWorker:
             old_values = mb.values.detach()
             old_normalized_values = mb.normalized_values.squeeze().detach()
             if self.cfg.model.use_popart:
-                value_loss = self._value_loss(normalized_values, old_normalized_values, targets, clip_value,
-                                              exclude_last=exclude_last)
+                value_loss = self._value_loss(normalized_values, targets, exclude_last=exclude_last)
             else:
-                value_loss = self._value_loss(values, old_values, targets, clip_value,
-                                              exclude_last=exclude_last)
+                value_loss = self._value_loss(values, targets, exclude_last=exclude_last)
             critic_loss = value_loss
 
             loss = actor_loss + critic_loss
@@ -502,6 +505,11 @@ class LearnerWorker:
                 reconstruction_loss = self._reconstruction_loss(mb.obs, reconstruction_target,
                                                                 self.cfg.env.obs_subtract_mean, self.cfg.env.obs_scale)
                 loss = loss + reconstruction_loss
+
+            if self.cfg.learner.use_aux_future_pred_loss:
+                future_pred_loss = result.future_pred_loss
+                loss = loss + future_pred_loss
+
 
         # calculate KL-divergence with the behaviour policy action distribution
         old_action_distribution = CategoricalActionDistribution(mb.action_logits,)
@@ -543,7 +551,7 @@ class LearnerWorker:
 
         curr_policy_version = self.train_step  # policy version before the weight update
 
-        if self.optimizer_step_count < self.cfg.learner.warmup_optimizer:
+        if self.optimizer_step_count < self.cfg.optim.warmup_optimizer:
             lr_original = self.optimizer.param_groups[0]['lr']
             self.optimizer.param_groups[0]['lr'] = 0.0
 
@@ -564,7 +572,7 @@ class LearnerWorker:
                     dist_all_reduce_buffers(self.actor_critic)
                 self.actor_critic.update_parameters(mu, sigma, oldmu, oldsigma)
 
-        if self.optimizer_step_count < self.cfg.learner.warmup_optimizer:
+        if self.optimizer_step_count < self.cfg.optim.warmup_optimizer:
             self.optimizer.param_groups[0]['lr'] = lr_original
         self.optimizer_step_count += 1
 
@@ -603,6 +611,8 @@ class LearnerWorker:
         stats.exploration_loss = var.exploration_loss
         if self.cfg.learner.use_decoder:
             stats.reconstruction_loss = var.reconstruction_loss
+        if self.cfg.learner.use_aux_future_pred_loss:
+            stats.future_pred_loss = var.future_pred_loss
 
         # stats.ratio = var.ratio
         stats.adv_min = var.adv.min()
@@ -659,16 +669,23 @@ class LearnerWorker:
         self.mems_buffer.share_memory_()
         self.mems_dones_buffer = torch.zeros(self.shared_buffer.mems_dones_dimensions, dtype=torch.bool).to(
             self.cfg.model.device)
+        self.mems_actions_buffer = torch.zeros(self.shared_buffer.mems_dones_dimensions).short().to(
+            self.cfg.model.device)
         self.mems_dones_buffer.share_memory_()
+        self.mems_actions_buffer.share_memory_()
         self.max_mems_buffer_len = self.shared_buffer.max_mems_buffer_len
         self.mems_dimensions = self.shared_buffer.mems_dimensions
         self.mems_dones_dimensions = self.shared_buffer.mems_dones_dimensions
+        self.mems_actions_dimensions = self.shared_buffer.mems_actions_dimensions
 
         rollouts_in_batch = self.cfg.optim.batch_size // self.cfg.optim.rollout
         self.mems = torch.zeros(
             [self.cfg.model.core.mem_len, rollouts_in_batch, self.mems_dimensions[-1]], device=self.device)
         self.mems_dones = torch.zeros(
             [self.cfg.model.core.mem_len, rollouts_in_batch, 1], dtype=torch.bool, device=self.device)
+        self.mems_actions = torch.zeros(
+            [self.cfg.model.core.mem_len, rollouts_in_batch, 1], device=self.device).short()
+
         if self.distenv.world_size > 1:
             dist_broadcast_model(self.actor_critic)
 
@@ -759,7 +776,8 @@ class LearnerWorker:
         else:
             raise NotImplementedError
 
-        self.load_from_checkpoint()
+        if self.cfg.learner.resume_training:
+            self.load_from_checkpoint()
 
         self._broadcast_model_weights()  # sync the very first version of the weights
 

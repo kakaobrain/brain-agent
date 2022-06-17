@@ -9,6 +9,9 @@ from brain_agent.core.models.model_utils import normalize_obs_return
 from brain_agent.core.models.action_distributions import sample_actions_log_probs
 from brain_agent.utils.utils import AttrDict
 
+from brain_agent.core.algos.aux_future_predict import FuturePredict
+
+
 class DMLabMultiTaskAgent(ActorCriticBase):
     def __init__(self, cfg, action_space, obs_space, num_levels, need_half=False):
         super().__init__(action_space, cfg)
@@ -39,6 +42,12 @@ class DMLabMultiTaskAgent(ActorCriticBase):
             self.beta = self.cfg.model.popart_beta
         else:
             self.critic_linear = nn.Linear(core_out_size, 1)
+
+        if cfg.learner.use_aux_future_pred_loss and cfg.model.core.core_type == "trxl":
+            self.future_pred_module = FuturePredict(self.cfg, self.encoder.basic_encoder.input_ch,
+                                                    self.encoder.basic_encoder.conv_head_out_size,
+                                                    core_out_size,
+                                                    action_space)
 
         self.action_parameterization = self.get_action_parameterization(core_out_size)
 

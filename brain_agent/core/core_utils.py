@@ -43,7 +43,8 @@ def iter_dicts_recursively(d1, d2):
         else:
             yield d1, d2, k, d1[k], d2[k]
 
-def slice_mems(mems_buffer, mems_dones_buffer, actor_idx, split_idx, env_idx, s_idx, e_idx):
+
+def slice_mems(mems_buffer, mems_dones_buffer, mems_actions_buffer, actor_idx, split_idx, env_idx, s_idx, e_idx):
     # Slice given mems buffers in a cyclic queue manner
     if s_idx > e_idx:
         mems = torch.cat(
@@ -52,10 +53,14 @@ def slice_mems(mems_buffer, mems_dones_buffer, actor_idx, split_idx, env_idx, s_
         mems_dones = torch.cat(
             [mems_dones_buffer[actor_idx, split_idx, env_idx, s_idx:],
              mems_dones_buffer[actor_idx, split_idx, env_idx, :e_idx]])
+        mems_actions = torch.cat(
+            [mems_actions_buffer[actor_idx, split_idx, env_idx, s_idx:],
+             mems_actions_buffer[actor_idx, split_idx, env_idx, :e_idx]])
     else:
         mems = mems_buffer[actor_idx, split_idx, env_idx, s_idx:e_idx]
         mems_dones = mems_dones_buffer[actor_idx, split_idx, env_idx, s_idx:e_idx]
-    return mems, mems_dones
+        mems_actions = mems_actions_buffer[actor_idx, split_idx, env_idx, s_idx:e_idx]
+    return mems, mems_dones, mems_actions
 
 def join_or_kill(process, timeout=1.0):
     process.join(timeout)

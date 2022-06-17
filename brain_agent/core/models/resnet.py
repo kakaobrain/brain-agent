@@ -10,6 +10,7 @@ class ResnetEncoder(EncoderBase):
 
         obs_shape = get_obs_shape(obs_space)
         input_ch = obs_shape.obs[0]
+        self.input_ch = input_ch
         log.debug('Num input channels: %d', input_ch)
 
         if cfg.model.encoder.encoder_subtype == 'resnet_impala':

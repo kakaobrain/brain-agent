@@ -281,7 +281,7 @@ class VectorEnvRunner:
             )
             policy_outputs_dict = dict()
             for tensor_idx, name in enumerate(actor_state.policy_output_names):
-                if name == 'rnn_states' and self.cfg.model.core.core_type=='rnn':
+                if name == 'rnn_states' and self.cfg.model.core.core_type == 'rnn':
                     new_rnn_state = policy_outputs[tensor_idx]
                 else:
                     policy_outputs_dict[name] = policy_outputs[tensor_idx]
@@ -407,7 +407,6 @@ class VectorEnvRunner:
                 episodic_stats.extend(stats)
             timing['overhead'] += timing['_overhead']
 
-
         self.rollout_step += 1
         if self.rollout_step == self.cfg.optim.rollout:
             # finalize and serialize the trajectory if we have a complete rollout
@@ -416,16 +415,15 @@ class VectorEnvRunner:
             self.traj_buffer_idx = (self.traj_buffer_idx + 1) % self.num_traj_buffers
 
             if self.traj_tensors_available[:, self.traj_buffer_idx].min() == 0:
-                self.wait_for_traj_buffers()
+                with timing.timeit('wait_traj_buffer'):
+                    self.wait_for_traj_buffers()
 
         self._prepare_next_step()
-
         policy_request = self._format_policy_request()
 
         return policy_request, complete_rollouts, episodic_stats
 
     def wait_for_traj_buffers(self):
-
         print_warning = True
         while self.traj_tensors_available[:, self.traj_buffer_idx].min() == 0:
             if print_warning:
