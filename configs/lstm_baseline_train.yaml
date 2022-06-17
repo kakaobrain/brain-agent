@@ -1,0 +1,22 @@
+train_dir: ???
+experiment: ???
+
+model:
+    agent: dmlab_multitask_agent
+    core:
+        core_type: rnn
+        n_rnn_layer: 3
+        core_init: tensorflow_default
+
+optim:
+    type: adam
+    learning_rate: 0.0002
+    batch_size: 576
+    rollout: 96
+    max_grad_norm: 2.5
+    warmup_optimizer: 0
+
+learner:
+    use_ppo: False
+    use_adv_normalization: False
+    exploration_loss_coeff: 0.003

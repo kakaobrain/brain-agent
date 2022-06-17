@@ -1,0 +1,22 @@
+train_dir: ???
+experiment: ???
+
+model:
+    agent: dmlab_multitask_agent
+    encoder:
+        encoder_subtype: resnet_impala_large
+        encoder_pooling: stride
+    core:
+        core_type: trxl
+        n_layer: 6
+        hidden_size: 512
+
+
+learner:
+    exploration_loss_coeff: 0.003
+    psychlab_gamma: 0.7
+    use_decoder: False
+    use_aux_future_pred_loss : True
+
+env:
+    action_set: extended_action_set_large
