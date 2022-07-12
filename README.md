@@ -15,12 +15,6 @@ We present BrainAgent, a codebase with following features.
      * additional autoregressive transformer to predict the images of future steps from the current state embedding and future action sequence ([trxl_future_pred](https://github.com/kakaobrain/brain_agent/blob/main/configs/trxl_future_pred_train.yaml))
   5. Provide codes for both training and evaluation, along with SOTA model checkpoint with 28M params
 
-## Distributed RL System
-<div align="center">
- <img width="1000" alt="Learning Curve" src="assets/system_overview.png"/>
-</div>
-
-
 ## How to Install
 - `Python 3.7`
 - `Pytorch 1.9.0`
@@ -147,8 +141,15 @@ python eval.py cfg=configs/trxl_recon_eval.yaml train_dir=$TRAIN_DIR experiment=
 
 - Learning curves
     <div align="center">
-     <img width="1000" alt="Learning Curve" src="assets/learning_curve.png"/>
+     <img width="900" alt="Learning Curve" src="assets/learning_curve.png"/>
     </div>
+
+
+## Distributed RL System
+<div align="center">
+ <img width="800" alt="Learning Curve" src="assets/system_overview.png"/>
+</div>
+
 
 ## Notes
 - Acknowledgement
