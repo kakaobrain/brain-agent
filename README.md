@@ -103,39 +103,39 @@ python eval.py cfg=configs/trxl_recon_eval.yaml train_dir=$TRAIN_DIR experiment=
 <summary>Results for all 30 tasks</summary>
 <div markdown="1">
                                                         
-    |	Level	|	lstm_baseline	|	&nbsp;trxl_baseline&nbsp;	|	&nbsp;&nbsp;&nbsp;&nbsp;trxl_recon&nbsp;&nbsp;&nbsp;&nbsp;	|	trxl_future_pred	|
-    |	:-----:	|	:-----:	|	:-----:	|	:-----:	|	:---:	|
-    |	rooms_collect_good_objects_(train / test)	|	94.22 ± 0.84 / 95.13 ± 0.61	|	97.85 ± 0.31 / 95.20 ± 1.26	|	97.58 ± 0.20 / 89.39 ± 1.42	|	98.19 ± 0.18 / 98.52 ± 0.95	|
-    |	rooms_exploit_deferred_effects_(train / test)	|	37.84 ± 2.23 / 4.36 ± 1.84	|	38.40 ± 3.82 / 1.73 ± 0.63	|	38.86 ± 3.48 / 4.04 ± 0.89	|	40.93 ± 3.12 / 2.26 ± 0.71	|
-    |	rooms_select_nonmatching_object	|	50.13 ± 2.95	|	98.78 ± 1.38	|	99.52 ± 0.97	|	113.20 ± 1.14	|
-    |	rooms_watermaze	|	45.09 ± 4.70	|	36.92 ± 6.90	|	111.20 ± 2.29	|	55.82 ± 0.74	|
-    |	rooms_keys_doors_puzzle	|	51.75 ± 8.90	|	55.86 ± 4.25	|	61.24 ± 9.09	|	64.95 ± 8.43	|
-    |	language_select_described_object	|	150.57 ± 0.58	|	154.90 ± 0.22	|	155.35 ± 0.17	|	158.23 ± 0.90	|
-    |	language_select_located_object	|	225.97 ± 1.93	|	244.46 ± 1.56	|	252.04 ± 0.31	|	261.20 ± 1.15	|
-    |	language_execute_random_task	|	126.49 ± 2.35	|	139.63 ± 1.23	|	145.21 ± 0.36	|	150.20 ± 1.35	|
-    |	language_answer_quantitative_question	|	153.92 ± 2.35	|	162.99 ± 2.42	|	163.72 ± 1.36	|	166.07 ± 1.72	|
-    |	lasertag_one_opponent_small	|	234.90 ± 6.19	|	243.52 ± 3.96	|	249.99 ± 6.64	|	279.54 ± 4.14	|
-    |	lasertag_three_opponents_small	|	235.61 ± 1.92	|	242.61 ± 3.75	|	246.68 ± 5.99	|	264.20 ± 3.76	|
-    |	lasertag_one_opponent_large	|	74.88 ± 5.06	|	83.51 ± 1.31	|	82.55 ± 2.15	|	94.86 ± 3.64	|
-    |	lasertag_three_opponents_large	|	84.78 ± 2.42	|	92.04 ± 2.17	|	96.54 ± 0.67	|	105.83 ± 0.47	|
-    |	natlab_fixed_large_map	|	98.10 ± 1.77	|	110.74 ± 1.34	|	120.53 ± 1.79	|	118.17 ± 1.79	|
-    |	natlab_varying_map_regrowth	|	108.54 ± 1.20	|	107.16 ± 2.68	|	108.14 ± 1.25	|	104.83 ± 1.26	|
-    |	natlab_varying_map_randomized	|	85.33 ± 6.52	|	86.33 ± 7.30	|	85.53 ± 6.69	|	77.74 ± 0.84	|
-    |	skymaze_irreversible_path_hard	|	55.29 ± 9.08	|	60.63 ± 4.73	|	61.63 ± 2.52	|	66.30 ± 5.69	|
-    |	skymaze_irreversible_path_varied	|	77.02 ± 3.57	|	77.41 ± 0.67	|	81.31 ± 2.34	|	79.36 ± 7.95	|
-    |	psychlab_arbitrary_visuomotor_mapping	|	52.17 ± 2.06	|	51.46 ± 0.45	|	101.82 ± 0.19	|	101.80 ± 0.00	|
-    |	psychlab_continuous_recognition	|	52.57 ± 0.46	|	52.41 ± 0.92	|	102.46 ± 0.32	|	102.30 ± 0.00	|
-    |	psychlab_sequential_comparison	|	76.82 ± 0.45	|	75.48 ± 1.16	|	75.74 ± 0.58	|	76.13 ± 0.77	|
-    |	psychlab_visual_search	|	101.54 ± 0.10	|	101.58 ± 0.04	|	101.91 ± 0.00	|	101.90 ± 0.00	|
-    |	explore_object_locations_small	|	118.89 ± 0.93	|	121.47 ± 0.26	|	123.54 ± 2.61	|	126.67 ± 2.08	|
-    |	explore_object_locations_large	|	111.46 ± 2.91	|	120.70 ± 2.12	|	115.43 ± 1.64	|	129.83 ± 2.41	|
-    |	explore_obstructed_goals_small	|	136.92 ± 6.02	|	148.05 ± 1.96	|	166.75 ± 3.63	|	174.30 ± 3.72	|
-    |	explore_obstructed_goals_large	|	92.36 ± 5.81	|	106.73 ± 7.86	|	153.44 ± 3.20	|	176.43 ± 1.50	|
-    |	explore_goal_locations_small	|	143.21 ± 8.21	|	154.87 ± 4.41	|	177.16 ± 0.37	|	193.00 ± 3.75	|
-    |	explore_goal_locations_large	|	98.50 ± 9.61	|	117.33 ± 6.75	|	160.39 ± 3.32	|	178.13 ± 7.15	|
-    |	explore_object_rewards_few	|	76.29 ± 1.52	|	108.64 ± 0.89	|	109.58 ± 3.53	|	110.07 ± 1.42	|
-    |	explore_object_rewards_many	|	72.33 ± 0.87	|	105.33 ± 1.52	|	105.15 ± 0.75	|	107.23 ± 1.59	|
-    
+|	Level	|	lstm_baseline	|	&nbsp;trxl_baseline&nbsp;	|	&nbsp;&nbsp;&nbsp;&nbsp;trxl_recon&nbsp;&nbsp;&nbsp;&nbsp;	|	trxl_future_pred	|
+|	:-----:	|	:-----:	|	:-----:	|	:-----:	|	:---:	|
+|	rooms_collect_good_objects_(train / test)	|	94.22 ± 0.84 / 95.13 ± 0.61	|	97.85 ± 0.31 / 95.20 ± 1.26	|	97.58 ± 0.20 / 89.39 ± 1.42	|	98.19 ± 0.18 / 98.52 ± 0.95	|
+|	rooms_exploit_deferred_effects_(train / test)	|	37.84 ± 2.23 / 4.36 ± 1.84	|	38.40 ± 3.82 / 1.73 ± 0.63	|	38.86 ± 3.48 / 4.04 ± 0.89	|	40.93 ± 3.12 / 2.26 ± 0.71	|
+|	rooms_select_nonmatching_object	|	50.13 ± 2.95	|	98.78 ± 1.38	|	99.52 ± 0.97	|	113.20 ± 1.14	|
+|	rooms_watermaze	|	45.09 ± 4.70	|	36.92 ± 6.90	|	111.20 ± 2.29	|	55.82 ± 0.74	|
+|	rooms_keys_doors_puzzle	|	51.75 ± 8.90	|	55.86 ± 4.25	|	61.24 ± 9.09	|	64.95 ± 8.43	|
+|	language_select_described_object	|	150.57 ± 0.58	|	154.90 ± 0.22	|	155.35 ± 0.17	|	158.23 ± 0.90	|
+|	language_select_located_object	|	225.97 ± 1.93	|	244.46 ± 1.56	|	252.04 ± 0.31	|	261.20 ± 1.15	|
+|	language_execute_random_task	|	126.49 ± 2.35	|	139.63 ± 1.23	|	145.21 ± 0.36	|	150.20 ± 1.35	|
+|	language_answer_quantitative_question	|	153.92 ± 2.35	|	162.99 ± 2.42	|	163.72 ± 1.36	|	166.07 ± 1.72	|
+|	lasertag_one_opponent_small	|	234.90 ± 6.19	|	243.52 ± 3.96	|	249.99 ± 6.64	|	279.54 ± 4.14	|
+|	lasertag_three_opponents_small	|	235.61 ± 1.92	|	242.61 ± 3.75	|	246.68 ± 5.99	|	264.20 ± 3.76	|
+|	lasertag_one_opponent_large	|	74.88 ± 5.06	|	83.51 ± 1.31	|	82.55 ± 2.15	|	94.86 ± 3.64	|
+|	lasertag_three_opponents_large	|	84.78 ± 2.42	|	92.04 ± 2.17	|	96.54 ± 0.67	|	105.83 ± 0.47	|
+|	natlab_fixed_large_map	|	98.10 ± 1.77	|	110.74 ± 1.34	|	120.53 ± 1.79	|	118.17 ± 1.79	|
+|	natlab_varying_map_regrowth	|	108.54 ± 1.20	|	107.16 ± 2.68	|	108.14 ± 1.25	|	104.83 ± 1.26	|
+|	natlab_varying_map_randomized	|	85.33 ± 6.52	|	86.33 ± 7.30	|	85.53 ± 6.69	|	77.74 ± 0.84	|
+|	skymaze_irreversible_path_hard	|	55.29 ± 9.08	|	60.63 ± 4.73	|	61.63 ± 2.52	|	66.30 ± 5.69	|
+|	skymaze_irreversible_path_varied	|	77.02 ± 3.57	|	77.41 ± 0.67	|	81.31 ± 2.34	|	79.36 ± 7.95	|
+|	psychlab_arbitrary_visuomotor_mapping	|	52.17 ± 2.06	|	51.46 ± 0.45	|	101.82 ± 0.19	|	101.80 ± 0.00	|
+|	psychlab_continuous_recognition	|	52.57 ± 0.46	|	52.41 ± 0.92	|	102.46 ± 0.32	|	102.30 ± 0.00	|
+|	psychlab_sequential_comparison	|	76.82 ± 0.45	|	75.48 ± 1.16	|	75.74 ± 0.58	|	76.13 ± 0.77	|
+|	psychlab_visual_search	|	101.54 ± 0.10	|	101.58 ± 0.04	|	101.91 ± 0.00	|	101.90 ± 0.00	|
+|	explore_object_locations_small	|	118.89 ± 0.93	|	121.47 ± 0.26	|	123.54 ± 2.61	|	126.67 ± 2.08	|
+|	explore_object_locations_large	|	111.46 ± 2.91	|	120.70 ± 2.12	|	115.43 ± 1.64	|	129.83 ± 2.41	|
+|	explore_obstructed_goals_small	|	136.92 ± 6.02	|	148.05 ± 1.96	|	166.75 ± 3.63	|	174.30 ± 3.72	|
+|	explore_obstructed_goals_large	|	92.36 ± 5.81	|	106.73 ± 7.86	|	153.44 ± 3.20	|	176.43 ± 1.50	|
+|	explore_goal_locations_small	|	143.21 ± 8.21	|	154.87 ± 4.41	|	177.16 ± 0.37	|	193.00 ± 3.75	|
+|	explore_goal_locations_large	|	98.50 ± 9.61	|	117.33 ± 6.75	|	160.39 ± 3.32	|	178.13 ± 7.15	|
+|	explore_object_rewards_few	|	76.29 ± 1.52	|	108.64 ± 0.89	|	109.58 ± 3.53	|	110.07 ± 1.42	|
+|	explore_object_rewards_many	|	72.33 ± 0.87	|	105.33 ± 1.52	|	105.15 ± 0.75	|	107.23 ± 1.59	|
+
 </div>
 </details>
 
