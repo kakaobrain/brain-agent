@@ -16,7 +16,34 @@ from brain_agent.utils.timing import Timing
 
 from brain_agent.core.core_utils import TaskType, dict_of_lists_append, slice_mems, join_or_kill
 
+
 class PolicyWorker:
+    """
+    Policy worker is a separate process that uses the policy to generate actions for the rollout train data.
+
+    Args:
+        cfg (['brain_agent.utils.utils.AttrDict'], 'AttrDict'):
+            Global configuration in a form of AttrDict, a dictionary whose values can be accessed
+        obs_space ('gym.spaces'):
+            Observation space.
+        action_space ('gym.spaces.discrete.Discrete'):
+            Action space object. Currently only supports discrete action spaces.
+        level_info ('dct'):
+            Dictionary of level info, from DMLab env.
+        shared_buffer (['brain_agent.core.shared_buffer.SharedBuffer']):
+            Shared buffer object that stores collected rollouts.
+        policy_queue ('faster_fifo.Queue'):
+            Action request queue for the policy in the policy worker. Not to be confused with policy_worker_queue.
+        actor_worker_queue ('faster_fifo.Queue'):
+            Task queue for the actor worker.
+        policy_worker_queue ('faster_fifo.Queue'):
+            Task queue for the policy worker. Not to be confused wirth policy_queue.
+        report_queue ('faster_fifo.Queue'):
+            Task queue for reporting. This is where various workers dump information to log.
+        policy_lock ('multiprocessing.synchronize.Lock', *optional*):
+            This will be used to apply lock when updating and broadcasting model parameters.
+        resume_experiment_collection_cv(*optional*)
+    """
     def __init__(self, cfg, obs_space, action_space, level_info, shared_buffer, policy_queue, actor_worker_queues,
                  policy_worker_queue, report_queue, policy_lock=None, resume_experience_collection_cv=None):
         log.info('Initializing policy worker %d', cfg.dist.world_rank)
@@ -157,6 +184,10 @@ class PolicyWorker:
         self.mems_dones_buffer[index_for_mems_dones] = bool(done)
 
     def _handle_policy_steps(self):
+        """
+        Forwards policy for the indexed location in self.requests.
+        The resulting actions are stored back into the respective index in the shared buffer.
+        """
         with torch.no_grad():
             with self.timing.timeit('deserialize'):
                 observations = AttrDict()
@@ -172,6 +203,7 @@ class PolicyWorker:
 
                 traj_tensors = self.shared_buffer.tensors_individual_transitions
 
+                # Run through the request to read necessary data to inference action using policy.
                 for request in self.requests:
                     actor_idx, split_idx, request_data = request
                     if self.cfg.model.core.core_type == 'trxl':
@@ -394,7 +426,6 @@ class PolicyWorker:
                         if len(self.requests) > 0:
                             request_count.append(len(self.requests))
                             self._handle_policy_steps()
-
 
                 try:
                     task_type, data = self.policy_worker_queue.get_nowait()

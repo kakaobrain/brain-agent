@@ -36,6 +36,28 @@ def to_numpy_func(t, arr):
 
 
 class SharedBuffer:
+    """
+    Shared buffer stores data from different processes in a single place for efficient sharing of information.
+    The tensors are stored according to the index scheme of
+    [
+        actor worker index,
+        split index,
+        env index,
+        trajectory buffer index,
+        time step
+    ]
+    actor worker index:
+        Index of the actor worker. There can be multiple actor workers.
+    split index:
+        Index of the split. Each worker has many env objects which are grouped into splits.
+        Each split is inferenced iteratively, for faster performance. (See Sample-factory for detail)
+    env index:
+        Inside a split, there are multiple env objects.
+    trajectory buffer index:
+        In case learner is significantly slow, data may pile and extra buffers takes care of them in a circular queue manner.
+    time step:
+        Rollout data are stored as a trajectory. A tensor resides in time step t within the trajectory.
+    """
     def __init__(self, cfg, obs_space, action_space):
 
         self.cfg = cfg
