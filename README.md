@@ -1,14 +1,15 @@
 # Brain Agent 
+We present BrainAgent, a reinforcement learning codebase with following features.
 
+## Features
 
-## Overview
-We present BrainAgent, a codebase with following features.
-  1. First publicly available implementations of SOTA results on [DMLAB30](https://github.com/deepmind/lab) environments
-  2. Scalable & massive throughput - BrainAgent can produce and train 20B frames/week, or 34k fps, with 16 V100 GPUs, by scale-up high throughput single node system [Sample Factory](https://github.com/alex-petrenko/sample-factory)
+  1. First publicly available implementations of reproducing SOTA results on [DMLAB30](https://github.com/deepmind/lab)
+  2. Scalable & massive throughput  
+     BrainAgent can produce and train 20B frames/week, or 34K fps, with 16 V100 GPUs, by scaling up high throughput single node system [Sample Factory](https://github.com/alex-petrenko/sample-factory)
   3. Based on following algorithms and architectures
      * [TransformerXL-I](https://proceedings.mlr.press/v119/parisotto20a.html) core and [ResNet](https://arxiv.org/abs/1512.03385?context=cs) encoder
-     * [V-trace](https://arxiv.org/abs/1802.01561) update algorithm
-     * [IMPALA](https://arxiv.org/abs/1802.01561) system framework 
+     * [V-trace](https://arxiv.org/abs/1802.01561) for update algorithm
+     * [IMPALA](https://arxiv.org/abs/1802.01561) for system framework 
      * [PopArt](https://arxiv.org/abs/1809.04474) for multitask handling
   4. For self-supervised representation learning, we include 2 additional features
      * ResNet-based decoder to reconstruct the original input image ([trxl_recon](https://github.com/kakaobrain/brain_agent/blob/main/configs/trxl_recon_train.yaml))
@@ -42,6 +43,8 @@ We present BrainAgent, a codebase with following features.
     - `dmlab`
   - `utils`
     - ...
+- `configs`
+  - ... -> Hyperparam configs for each of training/evaluation
 
 
 ## How to Run
@@ -53,7 +56,7 @@ We present BrainAgent, a codebase with following features.
   
 - 1 node x 4 GPUs = 4 GPUs
   ```bash
-     python -m dist_launch --nnodes=1 --node_rank=0 --nproc_per_node=4 --master_addr=$MASTER_ADDR -m train \ 
+     python -m dist_launch --nnodes=1 --node_rank=0 --nproc_per_node=4 -m train \ 
        cfg=configs/trxl_recon_train.yaml train_dir=$TRAIN_DIR experiment=$EXPERIMENT_DIR
   ```
 
@@ -73,6 +76,12 @@ We present BrainAgent, a codebase with following features.
 ```bash
 python eval.py cfg=configs/trxl_recon_eval.yaml train_dir=$TRAIN_DIR experiment=$EXPERIMENT_DIR test.checkpoint=$CHECKPOINT_FILE_PATH 
 ```
+
+### Setting Hyperparameters
+- All the default hyperparameters are defined at `configs/default.yaml`
+- Other config files override on `configs/default.yaml`.
+- You can use pre-defined hyperparameters for our experiments with `configs/trxl_recon_train.yaml` or `configs/trxl_future_pred.yaml`
+
 
 
 ## Results for DMLAB30
@@ -141,19 +150,19 @@ python eval.py cfg=configs/trxl_recon_eval.yaml train_dir=$TRAIN_DIR experiment=
 
 - Learning curves
     <div align="center">
-     <img width="900" alt="Learning Curve" src="assets/learning_curve.png"/>
+     <img width="800" alt="Learning Curve" src="assets/learning_curve.png"/>
     </div>
 
 
-## Distributed RL System
+## Distributed RL System Overview
 <div align="center">
- <img width="800" alt="Learning Curve" src="assets/system_overview.png"/>
+ <img width="700" alt="Learning Curve" src="assets/system_overview.png"/>
 </div>
 
 
 ## Notes
 - Acknowledgement
-  - The code for overall distributed training is based on the [Sample Factory](alex-petrenko/sample-factory) repo, and the TransformerXL-I code is based on the [Transformer-XL](https://github.com/kimiyoung/transformer-xl) repo.
+  - [Sample Factory](alex-petrenko/sample-factory) for optimized single node training, [Transformer-XL](https://github.com/kimiyoung/transformer-xl) for neural net core architecture.
 
 - License
   - This repository is released under the MIT license, included [here](LICENSE).

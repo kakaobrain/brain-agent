@@ -82,17 +82,6 @@ class DMLabMultiTaskAgent(ActorCriticBase):
         self.critic_linear.weight.data = (self.critic_linear.weight.t() * oldsigma / sigma).t()
         self.critic_linear.bias.data = (oldsigma * self.critic_linear.bias + oldmu - mu) / sigma
 
-    # def update_mu_sigma(self, vs, task_ids):
-    #     vs = vs.reshape(-1, self.cfg.optim.rollout)
-    #     task_ids = task_ids.reshape(-1, self.cfg.optim.rollout)[:,0]
-    #     clamp_max = 1e4 if hasattr(self, 'need_half') and self.need_half else 1e6
-    #
-    #     mu, nu, sigma, oldmu, oldsigma = update_mu_sigma(self.nu, self.mu, vs, task_ids,
-    #                                                      self.cfg.model.popart_clip_min, clamp_max, self.cfg.model.popart_beta)
-    #     self.mu = mu
-    #     self.nu = nu
-    #
-    #     return self.mu, sigma, oldmu, oldsigma
     def update_mu_sigma(self, vs, task_ids, cfg=None):
         oldnu = self.nu.clone()
         oldsigma = torch.sqrt(oldnu - self.mu ** 2)
