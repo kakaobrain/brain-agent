@@ -15,19 +15,45 @@ from torch.multiprocessing import Process, Event as MultiprocessingEvent
 from brain_agent.core.core_utils import TaskType, iter_dicts_recursively, copy_dict_structure, slice_mems, iterate_recursively
 from brain_agent.core.models.action_distributions import CategoricalActionDistribution
 from brain_agent.core.agents.agent_utils import create_agent
-from brain_agent.core.models.model_utils import EPS, to_scalar
+from brain_agent.core.models.model_utils import to_scalar
 from brain_agent.core.algos.vtrace import calculate_vtrace
 from brain_agent.utils.utils import list_of_dicts_to_dict_of_lists, log, AttrDict, get_checkpoint_dir, get_checkpoints
 from brain_agent.utils.timing import Timing
-from brain_agent.core.core_utils import join_or_kill, safe_get, safe_put
+from brain_agent.core.core_utils import join_or_kill, safe_put
 from brain_agent.utils.dist_utils import dist_init, dist_broadcast_model, dist_reduce_gradient, dist_all_reduce_buffers
 
 
 class LearnerWorker:
+    """
+    LearnerWorker is responsible for managing the master parameter update, along with algorithms to be used.
+
+    Args:
+        cfg (['brain_agent.utils.utils.AttrDict'], 'AttrDict'):
+            Global configuration in a form of AttrDict, a dictionary whose values can be accessed
+        obs_space ('gym.spaces'):
+            Observation space.
+        action_space ('gym.spaces.discrete.Discrete'):
+            Action space object. Currently only supports discrete action spaces.
+        level_info ('dct'):
+            Dictionary of level info, from DMLab env.
+        report_queue ('faster_fifo.Queue'):
+            Task queue for reporting. This is where various workers dump information to log.
+        learner_worker_queue ('faster_fifo.Queue'):
+            Task queue for the learner worker. This is where other processes dump tasks for the learner.
+            The learner worker will take tasks to process from this queue.
+        policy_worker_queue ('faster_fifo.Queue'):
+            Task queue for the policy worker. Not to be confused with policy worker.
+        shared_buffer (['brain_agent.core.shared_buffer.SharedBuffer']):
+            Shared buffer object that stores collected rollouts.
+        policy_lock ('multiprocessing.synchronize.Lock'):
+            This will be used to apply lock when updating and broadcasting model parameters.
+
+
+        resume_experiment_collection_cv
+    """
     def __init__(
         self, cfg, obs_space, action_space, level_info, report_queue, learner_worker_queue, policy_worker_queue,
-            shared_buffer,
-        policy_lock, resume_experience_collection_cv,
+            shared_buffer, policy_lock, resume_experience_collection_cv,
     ):
         log.info('Initializing the learner %d', cfg.dist.world_rank)
 
@@ -128,6 +154,10 @@ class LearnerWorker:
         self.terminate = True
 
     def _broadcast_model_weights(self):
+        """
+        Broadcast the current model parameter that the LearnerWorker has to
+        other policy workers.
+        """
         state_dict = self.actor_critic.state_dict()
         policy_version = self.train_step
         log.debug('Broadcast model weights for model version %d', policy_version)
@@ -139,6 +169,10 @@ class LearnerWorker:
         self.policy_worker_queue.put((TaskType.INIT_MODEL, model_state))
 
     def _prepare_train_buffer(self, rollouts, macro_batch_size):
+        """
+        Given a list of rollouts, create batched tensors of size macro_bath_size.
+        Use pin memory for efficiency.
+        """
         trajectories = [AttrDict(r['t']) for r in rollouts]
 
         buffer = AttrDict()
@@ -186,6 +220,10 @@ class LearnerWorker:
         return device_buffer
 
     def _process_macro_batch(self, rollouts, batch_size):
+        """
+        Given a list of rollouts, convert to a buffer and push to experience_buffer_queue.
+        Will be called inside _process_rollouts and calls _prepare_train_buffer to complete the task.
+        """
         assert batch_size % self.cfg.optim.rollout == 0
 
         samples = env_steps = 0
@@ -198,6 +236,10 @@ class LearnerWorker:
             self.experience_buffer_queue.put((buffer, batch_size, samples, env_steps))
 
     def _process_rollouts(self, rollouts):
+        """
+        From the collected rollouts, select the most recent N rollouts that
+        make up a macro batch (set of minibatches to be used in a update step).
+        """
         batch_size = self.cfg.optim.batch_size
         rollouts_in_macro_batch = batch_size // self.cfg.optim.rollout
 
@@ -277,6 +319,9 @@ class LearnerWorker:
 
     # @staticmethod
     def _policy_loss(self, ratio, log_prob_actions, adv, clip_ratio_low, clip_ratio_high, ppo=False, exclude_last=False):
+        """
+        Calculate policy gradient loss, either using PPO or not.
+        """
         if ppo:
             clipped_ratio = torch.clamp(ratio, clip_ratio_low, clip_ratio_high)
             loss_unclipped = ratio * adv
@@ -294,6 +339,13 @@ class LearnerWorker:
         return loss
 
     def _value_loss(self, new_values, target, exclude_last=False):
+        """
+        Calculate the MSE loss for the given value and the target. Depending on
+        the calculation of the value targets, the last value of the rollout
+        sequence may be mauy have bootstrapped itself in place of the next
+        state's value. In this case, exclude_last should be set to True to
+        avoid calculating the loss using incorrect value target.
+        """
         value_loss = (new_values - target).pow(2)
         if exclude_last:
             loss_mask = torch.ones_like(value_loss).view(-1, self.cfg.optim.rollout)
@@ -361,9 +413,11 @@ class LearnerWorker:
         recurrence = self.cfg.optim.rollout
         rollouts_in_batch = self.cfg.optim.batch_size // recurrence
 
+        # Forward head, which corresponds to the encoder.
         head_outputs = self.actor_critic.forward_head(
             mb.obs, mb.prev_actions.squeeze().long(), mb.prev_rewards.squeeze(), decode=decode)
 
+        # Forward core, which could either be a transformer or a rnn.
         if self.cfg.model.core.core_type == 'trxl':
             mems_indices = mb.mems_indices.type(torch.long)
             for bidx in range(mems_indices.shape[0]):
@@ -385,23 +439,22 @@ class LearnerWorker:
                     head_outputs, mb.dones_cpu, mb.rnn_states, recurrence)
 
                 core_output_seq, _ = self.actor_critic.forward_core_rnn(head_output_seq, rnn_states,
-                                                                                        mb.dones, is_seq=True)
+                                                                        mb.dones, is_seq=True)
                 core_outputs = core_output_seq.data.index_select(0, inverted_select_inds)
         else:
             raise NotImplementedError
 
-        # calculate policy tail outside of recurrent loop
+        # Finally forward tail, also called 'head' elsewhere.
         with self.timing.timeit('tail'):
             result = self.actor_critic.forward_tail(core_outputs, mb.task_idx.to(torch.long),
-                                                with_action_distribution=True)
+                                                    with_action_distribution=True)
 
         if self.cfg.learner.use_aux_future_pred_loss:
-            future_pred_loss = self.actor_critic.future_pred_module.calc_loss(mb,
-                  core_outputs, self.mems, self.mems_actions, mems_dones, mem_begin_index, rollouts_in_batch,recurrence)
+            future_pred_loss = self.actor_critic.future_pred_module.calc_loss(
+                mb, core_outputs, self.mems, self.mems_actions, mems_dones, mem_begin_index, rollouts_in_batch, recurrence)
             result.future_pred_loss = future_pred_loss
 
         return result
-
 
     def _train(self, mb):
         # Initialize some variables
@@ -439,7 +492,6 @@ class LearnerWorker:
 
         # super large/small values can cause numerical problems and are probably noise anyway
         ratio = torch.clamp(ratio, 0.01, 100.0)
-
 
         # Calculate learning targets
         with torch.no_grad(), self.timing.timeit('calc_targets'):  # these computations are not the part of the computation graph

@@ -1,67 +1,117 @@
-# Brain Agent
-***Brain Agent*** is a distributed agent learning system for large-scale and multi-task reinforcement learning, developed by [Kakao Brain](https://www.kakaobrain.com/). 
+# Brain Agent 
+***Brain Agent*** is a distributed agent learning system for large-scale and multi-task reinforcement learning, developed by [Kakao Brain](https://www.kakaobrain.com/).
 Brain Agent is based on the V-trace actor-critic framework [IMPALA](https://arxiv.org/abs/1802.01561) and modifies [Sample Factory](https://github.com/alex-petrenko/sample-factory) to utilize multiple GPUs and CPUs for a much higher throughput rate during training.
+## Features
 
-Especially, Brain Agent supports the [PopArt](https://arxiv.org/abs/1809.04474) normalization as well as the [TransformerXL-I](https://proceedings.mlr.press/v119/parisotto20a.html) core of the policy network. 
-It also employs two auxiliary losses based on self-supervsied representation learning for faster and more reliable training:
-  1. Applying the auxiliary CNN-based decoder to the encoder of the policy network to reconstruct the original input image in the current step (trxl_recon).
-  2. Applying the auxiliary autoregressive transformer to reconstruct the images of future steps from the current state embedding and future action sequence (trxl_future_pred).
+  1. First publicly available implementations of reproducing SOTA results on [DMLAB30](https://github.com/deepmind/lab).
+  2. Scalable & massive throughput.  
+     BrainAgent can produce and train 20B frames/week, or 34K fps, with 16 V100 GPUs, by scaling up high throughput single node system [Sample Factory](https://github.com/alex-petrenko/sample-factory).
+  3. Based on following algorithms and architectures.
+     * [TransformerXL-I](https://proceedings.mlr.press/v119/parisotto20a.html) core and [ResNet](https://arxiv.org/abs/1512.03385?context=cs) encoder
+     * [V-trace](https://arxiv.org/abs/1802.01561) for update algorithm
+     * [IMPALA](https://arxiv.org/abs/1802.01561) for system framework 
+     * [PopArt](https://arxiv.org/abs/1809.04474) for multitask handling
+  4. For self-supervised representation learning, we include 2 additional features.
+     * ResNet-based decoder to reconstruct the original input image ([trxl_recon](https://github.com/kakaobrain/brain_agent/blob/main/configs/trxl_recon_train.yaml))
+     * Additional autoregressive transformer to predict the images of future steps from the current state embedding and future action sequence ([trxl_future_pred](https://github.com/kakaobrain/brain_agent/blob/main/configs/trxl_future_pred_train.yaml))
+  5. Provide codes for both training and evaluation, along with SOTA model checkpoint with 28M params.
 
-With these advanced techniques Brain Agent obtains the state-of-the-art result on [DeepMindLab](https://github.com/deepmind/lab) benchmark (DMLab-30 multi-task training) in terms of human normalized score (HNS) after training for 20 billion frames: the agent successfully obtained testing score of **91.25** in terms of mean capped HNS on DMLab-30 (multi-task mode), after training for 20B frames.
+## How to Install
+- `Python 3.7`
+- `Pytorch 1.9.0`
+- `CUDA 11.1`
+- Install DMLab envrionment - [DMLab Github](https://github.com/deepmind/lab/blob/master/docs/users/build.md)
+- `pip install -r requirements.txt`
 
-In specific, our transformer-based policy network has 28 million parameters and was trained on 16 V100 GPUs for 7 days.
+## Description of Codes
+- `dist_launch.py` -> distributed training launcher
+- `eval.py` -> entry point for evaluation 
+- `train.py` -> entry point for training 
+- `brain_agent`
+  - `core`
+    - `agents`
+      -  `dmlab_multitask_agent.py`
+    - `algos`
+      - `aux_future_predict.py` -> Computes auxiliary loss by predicting future state transitions with autoregressive transformer. Used only for ([trxl_future_pred](https://github.com/kakaobrain/brain_agent/blob/main/configs/trxl_future_pred_train.yaml)).
+      - `popart.py` 
+      - `vtrace.py`
+    - `actor_worker.py` 
+    - `learner_worker.py`
+    - `policy_worker.py`
+    - `shared_buffer.py` -> Defines SharedBuffer class for zero-copy communication between workers.
+  - `envs`
+    - `dmlab`
+  - `utils`
+    - ...
+- `configs`
+  - ... -> Hyperparam configs for each of training/evaluation.
 
-We release the source code and trained agent to facilitate future research on DMLab benchmark.
 
+## How to Run
+### Training
+- 1 node x 1 GPU 
+  ```bash
+     python train.py cfg=configs/trxl_recon_train.yaml train_dir=$TRAIN_DIR experiment=$EXPERIMENT_DIR
+  ```
+  
+- 1 node x 4 GPUs = 4 GPUs
+  ```bash
+     python -m dist_launch --nnodes=1 --node_rank=0 --nproc_per_node=4 -m train \ 
+       cfg=configs/trxl_recon_train.yaml train_dir=$TRAIN_DIR experiment=$EXPERIMENT_DIR
+  ```
 
-## Installation
-This code has been developed under Python 3.7, Pytorch 1.9.0 and CUDA 11.1.
-For DMLab environment, please follow installation instructions from [DMLab Github](https://github.com/deepmind/lab/blob/master/docs/users/build.md).
+- 4 nodes x 4 GPUs each = 16 GPUs
+  ```bash
+     sleep 120; python -m dist_launch --nnodes=4 --node_rank=0 --nproc_per_node=4 --master_addr=$MASTER_ADDR -m train \ 
+       cfg=configs/trxl_recon_train.yaml train_dir=$TRAIN_DIR experiment=$EXPERIMENT_DIR 
+     sleep 120; python -m dist_launch --nnodes=4 --node_rank=1 --nproc_per_node=4 --master_addr=$MASTER_ADDR -m train \ 
+       cfg=configs/trxl_recon_train.yaml train_dir=$TRAIN_DIR experiment=$EXPERIMENT_DIR
+     sleep 120; python -m dist_launch --nnodes=4 --node_rank=2 --nproc_per_node=4 --master_addr=$MASTER_ADDR -m train \ 
+       cfg=configs/trxl_recon_train.yaml train_dir=$TRAIN_DIR experiment=$EXPERIMENT_DIR
+     sleep 120; python -m dist_launch --nnodes=4 --node_rank=3 --nproc_per_node=4 --master_addr=$MASTER_ADDR -m train \ 
+       cfg=configs/trxl_recon_train.yaml train_dir=$TRAIN_DIR experiment=$EXPERIMENT_DIR
+  ```
 
-Please run the following command to install the other necessary dependencies.
+### Evaluation
 ```bash
-pip install -r requirements.txt
+python eval.py cfg=configs/trxl_recon_eval.yaml train_dir=$TRAIN_DIR experiment=$EXPERIMENT_DIR test.checkpoint=$CHECKPOINT_FILE_PATH 
 ```
 
+### Setting Hyperparameters
+- All the default hyperparameters are defined at `configs/default.yaml`
+- Other config files override on `configs/default.yaml`.
+- You can use pre-defined hyperparameters for our experiments with `configs/trxl_recon_train.yaml` or `configs/trxl_future_pred.yaml`.
 
-## Training
-The script `train.py` is used for training. Example usage to train a model on DMLab-30 with our 28M 
-transformer-based policy network on 4 nodes having 4 GPUs on each node is
-```bash
-sleep 120; python -m dist_launch --nnodes=4 --node_rank=0 --nproc_per_node=4 --master_addr=$MASTER_ADDR -m train \ 
-  cfg=configs/trxl_recon_train.yaml train_dir=$TRAIN_DIR experiment=$EXPERIMENT_DIR 
-sleep 120; python -m dist_launch --nnodes=4 --node_rank=1 --nproc_per_node=4 --master_addr=$MASTER_ADDR -m train \ 
-  cfg=configs/trxl_recon_train.yaml train_dir=$TRAIN_DIR experiment=$EXPERIMENT_DIR
-sleep 120; python -m dist_launch --nnodes=4 --node_rank=2 --nproc_per_node=4 --master_addr=$MASTER_ADDR -m train \ 
-  cfg=configs/trxl_recon_train.yaml train_dir=$TRAIN_DIR experiment=$EXPERIMENT_DIR
-sleep 120; python -m dist_launch --nnodes=4 --node_rank=3 --nproc_per_node=4 --master_addr=$MASTER_ADDR -m train \ 
-  cfg=configs/trxl_recon_train.yaml train_dir=$TRAIN_DIR experiment=$EXPERIMENT_DIR
-```
 
-## Evaluation
-### Trained Agent on DMLab-30
-We provide the checkpoint of our trained agent on DMLab-30. The overall performances of our agent and the previous
-state-of-the-art models are as follows.
 
-|  Model | Mean HNS  | Median HNS | Mean Capped HNS |
-|:----------:|:--------:|:----------:|:---------------:|
-| [MERLIN](https://arxiv.org/pdf/1803.10760.pdf) | 115.2  | - | 89.4 |
-| [GTrXL](https://proceedings.mlr.press/v119/parisotto20a.html) | 117.6 | - | 89.1 |
-| [CoBERL](https://arxiv.org/pdf/2107.05431.pdf) | 115.47  | 110.86 |- |
-| [R2D2+](https://openreview.net/pdf?id=r1lyTjAqYX) | -  | 99.5 | 85.7 |
-| [LASER](https://arxiv.org/abs/1909.11583) | -  | 97.2 | 81.7 |
-| [PBL](https://arxiv.org/pdf/2004.14646.pdf) | 104.16  | - | 81.5 |
-| [PopArt-IMPALA](https://arxiv.org/abs/1809.04474) | -  | - | 72.8 |
-| [IMPALA](https://arxiv.org/abs/1802.01561) | -  | - | 58.4 |
-|	Ours (lstm_baseline, [20B ckpt](https://arena.kakaocdn.net/brainrepo/models/brain_agent/ed7f0e5a8dc57ad72c8c38319f58000e/rnn_baseline_20b.pth))	|	103.03 ± 0.37	|	92.04 ± 0.73	|	81.35 ± 0.25	|
-|	Ours (trxl_baseline, [20B ckpt](https://arena.kakaocdn.net/brainrepo/models/brain_agent/c0e90a4e3555a12b58e60729d13e2e02/trxl_baseline_20b.pth))	|	111.95 ± 1.00	|	105.43 ± 2.61	|	85.57 ± 0.20	|
-|	Ours (trxl_recon, [20B ckpt](https://arena.kakaocdn.net/brainrepo/models/brain_agent/84ac1c594b8eb95e7fd9879d6172f99b/trxl_recon_20b.pth))	|	123.60 ± 0.84	|	108.63  ± 1.20	|	**91.25 ± 0.41**	|
-|	Ours (trxl_future_pred, [20B ckpt](https://arena.kakaocdn.net/brainrepo/models/brain_agent/a54acdd9d3a14f2905d295c9c63bf31d/trxl_future_pred_20b.pth))	|	**128.00 ± 0.43**	|	108.80  0.99	|	90.53 ± 0.26	|
+## Results for DMLAB30
 
-Our results were obtained by 3 runs with different random seeds where each run carried out 100 episodes for each task (level).
+- Settings
+  - 3 runs with different seeds
+  - 100 episodes per each run
+  - HNS : Human Normalised Score
+- Results
+    
+    |  Model | Mean HNS  | Median HNS | Mean Capped HNS |
+    |:----------:|:--------:|:----------:|:---------------:|
+    | [MERLIN](https://arxiv.org/pdf/1803.10760.pdf) | 115.2  | - | 89.4 |
+    | [GTrXL](https://proceedings.mlr.press/v119/parisotto20a.html) | 117.6 | - | 89.1 |
+    | [CoBERL](https://arxiv.org/pdf/2107.05431.pdf) | 115.47  | 110.86 |- |
+    | [R2D2+](https://openreview.net/pdf?id=r1lyTjAqYX) | -  | 99.5 | 85.7 |
+    | [LASER](https://arxiv.org/abs/1909.11583) | -  | 97.2 | 81.7 |
+    | [PBL](https://arxiv.org/pdf/2004.14646.pdf) | 104.16  | - | 81.5 |
+    | [PopArt-IMPALA](https://arxiv.org/abs/1809.04474) | -  | - | 72.8 |
+    | [IMPALA](https://arxiv.org/abs/1802.01561) | -  | - | 58.4 |
+    |	Ours (lstm_baseline, [20B ckpt](https://arena.kakaocdn.net/brainrepo/models/brain_agent/ed7f0e5a8dc57ad72c8c38319f58000e/rnn_baseline_20b.pth))	|	103.03 ± 0.37	|	92.04 ± 0.73	|	81.35 ± 0.25	|
+    |	Ours (trxl_baseline, [20B ckpt](https://arena.kakaocdn.net/brainrepo/models/brain_agent/c0e90a4e3555a12b58e60729d13e2e02/trxl_baseline_20b.pth))	|	111.95 ± 1.00	|	105.43 ± 2.61	|	85.57 ± 0.20	|
+    |	Ours (trxl_recon, [20B ckpt](https://arena.kakaocdn.net/brainrepo/models/brain_agent/84ac1c594b8eb95e7fd9879d6172f99b/trxl_recon_20b.pth))	|	123.60 ± 0.84	|	108.63  ± 1.20	|	**91.25 ± 0.41**	|
+    |	Ours (trxl_future_pred, [20B ckpt](https://arena.kakaocdn.net/brainrepo/models/brain_agent/a54acdd9d3a14f2905d295c9c63bf31d/trxl_future_pred_20b.pth))	|	**128.00 ± 0.43**	|	108.80  0.99	|	90.53 ± 0.26	|
 
-The detailed break down HNS scores by our agent are as follows:
-																			
+
+<details>
+<summary>Results for all 30 tasks</summary>
+<div markdown="1">
+                                                        
 |	Level	|	lstm_baseline	|	&nbsp;trxl_baseline&nbsp;	|	&nbsp;&nbsp;&nbsp;&nbsp;trxl_recon&nbsp;&nbsp;&nbsp;&nbsp;	|	trxl_future_pred	|
 |	:-----:	|	:-----:	|	:-----:	|	:-----:	|	:---:	|
 |	rooms_collect_good_objects_(train / test)	|	94.22 ± 0.84 / 95.13 ± 0.61	|	97.85 ± 0.31 / 95.20 ± 1.26	|	97.58 ± 0.20 / 89.39 ± 1.42	|	98.19 ± 0.18 / 98.52 ± 0.95	|
@@ -95,36 +145,35 @@ The detailed break down HNS scores by our agent are as follows:
 |	explore_object_rewards_few	|	76.29 ± 1.52	|	108.64 ± 0.89	|	109.58 ± 3.53	|	110.07 ± 1.42	|
 |	explore_object_rewards_many	|	72.33 ± 0.87	|	105.33 ± 1.52	|	105.15 ± 0.75	|	107.23 ± 1.59	|
 
-- Learning curves of our 20B checkpoint on dmlab-30
+</div>
+</details>
+
+- Learning curves
+    <div align="center">
+     <img width="800" alt="Learning Curve" src="assets/learning_curve.png"/>
+    </div>
+
+
+## Distributed RL System Overview
 <div align="center">
- <img width="800" alt="Learning Curve" src="assets/learning_curve.png"/>
+ <img width="700" alt="Learning Curve" src="assets/system_overview.png"/>
 </div>
 
 
-### Evaluation Command
-The script `eval.py` is used for evaluation. Example usage to test the provided checkpoint, which is located in $CHECKPOINT_FILE_PATH, is
+## Notes
+- Acknowledgement
+  - [Sample Factory](alex-petrenko/sample-factory) for optimized single node training, [Transformer-XL](https://github.com/kimiyoung/transformer-xl) for neural net core architecture.
 
-```bash
-python eval.py cfg=configs/trxl_recon_eval.yaml train_dir=$TRAIN_DIR experiment=$EXPERIMENT_DIR test.checkpoint=$CHECKPOINT_FILE_PATH 
-```
+- License
+  - This repository is released under the MIT license, included [here](LICENSE).
+  - This repository includes some codes from [sample-factory](https://github.com/alex-petrenko/sample-factory) 
+  (MIT license) and [transformer-xl](https://github.com/kimiyoung/transformer-xl) (Apache 2.0 License).
 
-## Acknowledgement
-
-The code for overall distributed training is based on the [Sample Factory](alex-petrenko/sample-factory) repo, and the TransformerXL-I code is based on the [Transformer-XL](https://github.com/kimiyoung/transformer-xl) repo.
-
-## Licenses
-This repository is released under the MIT license, included [here](LICENSE).
-
-This repository includes some codes from [sample-factory](https://github.com/alex-petrenko/sample-factory) 
-(MIT license) and [transformer-xl](https://github.com/kimiyoung/transformer-xl) (Apache 2.0 License).
-
-## Contact
-
-If you have any question or feedback regarding this repository, please email to contact@kakaobrain.com
+- Contact
+  - Agent learning team, [Kakao Brain](https://www.kakaobrain.com/).
+  - If you have any question or feedback regarding this repository, please email to contact@kakaobrain.com
 
 ## Citation
-
-If you use Brain Agent in your research or work, please cite it as:
 ```
 @misc{kakaobrain2022brain_agent, title = {Brain Agent}, 
 author = {Donghoon Lee, Taehwan Kwon, Seungeun Rho, Daniel Wontae Nam, Jongmin Kim, Daejin Jo, and Sungwoong Kim}, 

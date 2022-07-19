@@ -18,6 +18,27 @@ from brain_agent.utils.timing import Timing
 # TODO: actions -> action
 
 class ActorWorker:
+    """
+    ActorWorker is responsible for running the environment(s) with the action(s) that may be provided by the policy workers.
+
+    Args:
+        cfg (['brain_agent.utils.utils.AttrDict'], 'AttrDict'):
+            Global configuration in a form of AttrDict, a dictionary whose values can be accessed
+        obs_space ('gym.spaces'):
+            Observation space.
+        action_space ('gym.spaces.discrete.Discrete'):
+            Action space object. Currently only supports discrete action spaces.
+        shared_buffer (['brain_agent.core.shared_buffer.SharedBuffer']):
+            Shared buffer object that stores collected rollouts.
+        actor_worker_queue ('faster_fifo.Queue'):
+            Task queue for the actor worker.
+        policy_queue ('faster_fifo.Queue'):
+            Action request queue for the policy in the policy worker. Not to be confused with policy_worker_queue.
+        report_queue ('faster_fifo.Queue'):
+            Task queue for reporting. This is where various workers dump information to log.
+        learner_worker_queue ('faster_fifo.Queue', *optional*):
+            Task queue for the learner worker. This is where other processes dump tasks for the learner.
+    """
     def __init__(self, cfg, obs_space, action_space, actor_idx, shared_buffer, actor_worker_queue, policy_queue,
                  report_queue, learner_worker_queue=None):
         self.cfg = cfg
