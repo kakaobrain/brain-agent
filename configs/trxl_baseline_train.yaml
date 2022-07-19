@@ -1,0 +1,18 @@
+train_dir: ???
+experiment: ???
+
+model:
+    agent: dmlab_multitask_agent
+    encoder:
+        encoder_subtype: resnet_impala
+    core:
+        core_type: trxl
+    use_half_policy_worker: True
+
+optim:
+    type: adam
+    learning_rate: 0.0001
+    batch_size: 1536
+    rollout: 96
+    max_grad_norm: 2.5
+

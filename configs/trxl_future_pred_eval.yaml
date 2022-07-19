@@ -1,0 +1,34 @@
+train_dir: ???
+experiment: ???
+
+test:
+    is_test: True
+    checkpoint: ???
+    test_num_episodes: 100
+
+model:
+    agent: dmlab_multitask_agent
+    encoder:
+        encoder_subtype: resnet_impala_large
+        encoder_pooling: stride
+    core:
+        core_type: trxl
+        n_layer: 6
+        hidden_size: 512
+    use_half_policy_worker: False
+
+learner:
+    use_aux_future_pred_loss : True
+
+actor:
+    num_workers: 30
+    num_envs_per_worker: 10
+    num_splits: 2
+
+env:
+    name: dmlab_30_test
+    use_level_cache: True
+    decorrelate_envs_on_one_worker: False
+    decorrelate_experience_max_seconds: 0
+    one_task_per_worker: True
+    action_set: extended_action_set_large
