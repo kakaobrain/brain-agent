@@ -102,10 +102,10 @@ python eval.py cfg=configs/trxl_recon_eval.yaml train_dir=$TRAIN_DIR experiment=
     | [PBL](https://arxiv.org/pdf/2004.14646.pdf) | 104.16  | - | 81.5 |
     | [PopArt-IMPALA](https://arxiv.org/abs/1809.04474) | -  | - | 72.8 |
     | [IMPALA](https://arxiv.org/abs/1802.01561) | -  | - | 58.4 |
-    |	Ours (lstm_baseline, [20B ckpt](https://arena.kakaocdn.net/brainrepo/models/brain_agent/ed7f0e5a8dc57ad72c8c38319f58000e/rnn_baseline_20b.pth))	|	103.03 ± 0.37	|	92.04 ± 0.73	|	81.35 ± 0.25	|
-    |	Ours (trxl_baseline, [20B ckpt](https://arena.kakaocdn.net/brainrepo/models/brain_agent/c0e90a4e3555a12b58e60729d13e2e02/trxl_baseline_20b.pth))	|	111.95 ± 1.00	|	105.43 ± 2.61	|	85.57 ± 0.20	|
-    |	Ours (trxl_recon, [20B ckpt](https://arena.kakaocdn.net/brainrepo/models/brain_agent/84ac1c594b8eb95e7fd9879d6172f99b/trxl_recon_20b.pth))	|	123.60 ± 0.84	|	108.63  ± 1.20	|	**91.25 ± 0.41**	|
-    |	Ours (trxl_future_pred, [20B ckpt](https://arena.kakaocdn.net/brainrepo/models/brain_agent/a54acdd9d3a14f2905d295c9c63bf31d/trxl_future_pred_20b.pth))	|	**128.00 ± 0.43**	|	108.80  0.99	|	90.53 ± 0.26	|
+    |	Ours (lstm_baseline, [20B ckpt](https://twg.kakaocdn.net/brainrepo/models/brain_agent/ed7f0e5a8dc57ad72c8c38319f58000e/rnn_baseline_20b.pth))	|	103.03 ± 0.37	|	92.04 ± 0.73	|	81.35 ± 0.25	|
+    |	Ours (trxl_baseline, [20B ckpt](https://twg.kakaocdn.net/brainrepo/models/brain_agent/c0e90a4e3555a12b58e60729d13e2e02/trxl_baseline_20b.pth))	|	111.95 ± 1.00	|	105.43 ± 2.61	|	85.57 ± 0.20	|
+    |	Ours (trxl_recon, [20B ckpt](https://twg.kakaocdn.net/brainrepo/models/brain_agent/84ac1c594b8eb95e7fd9879d6172f99b/trxl_recon_20b.pth))	|	123.60 ± 0.84	|	108.63  ± 1.20	|	**91.25 ± 0.41**	|
+    |	Ours (trxl_future_pred, [20B ckpt](https://twg.kakaocdn.net/brainrepo/models/brain_agent/a54acdd9d3a14f2905d295c9c63bf31d/trxl_future_pred_20b.pth))	|	**128.00 ± 0.43**	|	108.80  0.99	|	90.53 ± 0.26	|
 
 
 <details>
